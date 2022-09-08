@@ -136,7 +136,7 @@ local json = require("json")
 if (code ~= 200) then
     log("Inception post error : "..tostring(code)..","..tostring(body))
     return
-elseif (body == nil) then
+elseif isempty(body) then
     log("Inception post error : "..tostring(code)..","..tostring(body))
     return
 else return body
@@ -145,11 +145,9 @@ end
 end
 
 ------------------------------
-	--  Resident Code  --
+--  Inception API Payloads  --
 ------------------------------
 
-local endpoint = "monitor-updates"
-	
 local payload = json.encode(
 {
 	{
@@ -170,56 +168,63 @@ local payload = json.encode(
 }
 })	
 
-local body = inceptionapi(payload,endpoint)
+------------------------------
+	--  Resident Code  --
+------------------------------
 
-    if body then
-      local httptable = json.pdecode(body)
-      -- log(httptable)
-      -- check if the response was related to areas?
-      if tostring(httptable["ID"]) == "CBUS-Areas-Monitor" then
-        tsuarea = tostring(httptable["Result"]["updateTime"])
-        -- Find the matching area ID and translate it to a string
-        local numUpdates = table.getn(httptable["Result"]["stateData"])
-        for httptableindex = 1,numUpdates,1
-        do
-          if httptable["Result"]["stateData"][httptableindex]["ID"] == area_id then
-            local PublicState = httptable["Result"]["stateData"][httptableindex]["PublicState"]
-            local AlarmAreaStatus = areaeval(PublicState)
-            log("Alarm Area Status is: " .. AlarmAreaStatus .. " which was calculated from a Public State ID of " .. PublicState)						
-              -- Set the C-Bus User Parameter
-            SetUserParam(0, CBUS_USERPARAM_NAME_ALARMSTATE, AlarmAreaStatus)
-              --	log("We have a match! " .. tostring(httptable["Result"]["stateData"][httptableindex]["ID"]) .. " The Status is now set to " .. tostring(httptable["Result"]["stateData"][httptableindex]["PublicState"]))
-          end
-        end
+-- Query the API
+local body = inceptionapi(payload,"monitor-updates")
+
+-- Process the Response
+-- NOTE: This needs cleaning up.
+if body then
+  local httptable = json.pdecode(body)
+  -- log(httptable)
+  -- check if the response was related to areas?
+  if tostring(httptable["ID"]) == "CBUS-Areas-Monitor" then
+	tsuarea = tostring(httptable["Result"]["updateTime"])
+	-- Find the matching area ID and translate it to a string
+	local numUpdates = table.getn(httptable["Result"]["stateData"])
+	for httptableindex = 1,numUpdates,1
+	do
+	  if httptable["Result"]["stateData"][httptableindex]["ID"] == area_id then
+		local PublicState = httptable["Result"]["stateData"][httptableindex]["PublicState"]
+		local AlarmAreaStatus = areaeval(PublicState)
+		log("Alarm Area Status is: " .. AlarmAreaStatus .. " which was calculated from a Public State ID of " .. PublicState)						
+		  -- Set the C-Bus User Parameter
+		SetUserParam(0, CBUS_USERPARAM_NAME_ALARMSTATE, AlarmAreaStatus)
+		  --	log("We have a match! " .. tostring(httptable["Result"]["stateData"][httptableindex]["ID"]) .. " The Status is now set to " .. tostring(httptable["Result"]["stateData"][httptableindex]["PublicState"]))
+	  end
+	end
 end
     -- check if the response was related to doors?
 
-	if tostring(httptable["ID"]) == "CBUS-Doors-Monitor" then
-		tsudoors = tostring(httptable["Result"]["updateTime"])    
-		-- Find the matching ID and translate it to a string
-		local numUpdates = table.getn(httptable["Result"]["stateData"])
-		for httptableindex = 1,numUpdates,1
-		do
-			if httptable["Result"]["stateData"][httptableindex]["ID"] == front_door_id then
-				local PublicState = httptable["Result"]["stateData"][httptableindex]["PublicState"]
-				local FrontDoorStatus = dooreval(PublicState)
-				log("Front Door Status is: " .. FrontDoorStatus .. " which was calculated from a Public State ID of " .. PublicState)						
-    		-- Set the C-Bus User Parameter
-      	SetUserParam(0, CBUS_USERPARAM_NAME_FRONTDOOR, FrontDoorStatus)
-        local strn = string.split(FrontDoorStatus, "-")
-        local DoorScreenLabel = tostring(strn[1])
-        SetCBusLabel(0,56,122,1,'Variant 1',string.sub(DoorScreenLabel, 1, 13))
-        log("Setting C-Bus Label to: " .. tostring(DoorScreenLabel))
-        --	log("We have a match! " .. tostring(httptable["Result"]["stateData"][httptableindex]["ID"]) .. " The Status is now set to " .. tostring(httptable["Result"]["stateData"][httptableindex]["PublicState"]))
-			end
-			if httptable["Result"]["stateData"][httptableindex]["ID"] == rear_door_id then
-				local PublicState = httptable["Result"]["stateData"][httptableindex]["PublicState"]
-				local RearDoorStatus = dooreval(PublicState)
-				log("Rear Door Status is: " .. RearDoorStatus .. " which was calculated from a Public State ID of " .. PublicState)						
-   			-- Set the C-Bus User Parameter
-				SetUserParam(0, CBUS_USERPARAM_NAME_REARDOOR, RearDoorStatus)
-	  		--	log("We have a match! " .. tostring(httptable["Result"]["stateData"][httptableindex]["ID"]) .. " The Status is now set to " .. tostring(httptable["Result"]["stateData"][httptableindex]["PublicState"]))
-			end
-  	end
-  end
+if tostring(httptable["ID"]) == "CBUS-Doors-Monitor" then
+	tsudoors = tostring(httptable["Result"]["updateTime"])    
+	-- Find the matching ID and translate it to a string
+	local numUpdates = table.getn(httptable["Result"]["stateData"])
+	for httptableindex = 1,numUpdates,1
+	do
+		if httptable["Result"]["stateData"][httptableindex]["ID"] == front_door_id then
+			local PublicState = httptable["Result"]["stateData"][httptableindex]["PublicState"]
+			local FrontDoorStatus = dooreval(PublicState)
+			log("Front Door Status is: " .. FrontDoorStatus .. " which was calculated from a Public State ID of " .. PublicState)						
+		-- Set the C-Bus User Parameter
+	SetUserParam(0, CBUS_USERPARAM_NAME_FRONTDOOR, FrontDoorStatus)
+	local strn = string.split(FrontDoorStatus, "-")
+	local DoorScreenLabel = tostring(strn[1])
+	SetCBusLabel(0,56,122,1,'Variant 1',string.sub(DoorScreenLabel, 1, 13))
+	log("Setting C-Bus Label to: " .. tostring(DoorScreenLabel))
+	--	log("We have a match! " .. tostring(httptable["Result"]["stateData"][httptableindex]["ID"]) .. " The Status is now set to " .. tostring(httptable["Result"]["stateData"][httptableindex]["PublicState"]))
+		end
+		if httptable["Result"]["stateData"][httptableindex]["ID"] == rear_door_id then
+			local PublicState = httptable["Result"]["stateData"][httptableindex]["PublicState"]
+			local RearDoorStatus = dooreval(PublicState)
+			log("Rear Door Status is: " .. RearDoorStatus .. " which was calculated from a Public State ID of " .. PublicState)						
+		-- Set the C-Bus User Parameter
+			SetUserParam(0, CBUS_USERPARAM_NAME_REARDOOR, RearDoorStatus)
+		--	log("We have a match! " .. tostring(httptable["Result"]["stateData"][httptableindex]["ID"]) .. " The Status is now set to " .. tostring(httptable["Result"]["stateData"][httptableindex]["PublicState"]))
+		end
+end
+end
 end
