@@ -56,32 +56,29 @@ local function areaeval(res)
 string = ""
 
 vals = {
-[1] = 'Armed',
-[2] = 'Alarm',
-[4] = 'Entry Delay',
-[8] = 'Exit Delay',
-[16] = 'Arm Warning',
-[32] = 'Defer Disarmed',
-[64] = 'Detecting Active Inputs',
-[128] = 'Walk Test Active',
-[256] = ' Away Arm',
-[512] = 'Stay Arm',
-[1024] = 'Sleep Arm',
-[2048] = ' Disarmed',
-[4096] = 'Arm Ready'
+'Armed',
+'Alarm',
+'Entry Delay',
+'Exit Delay',
+'Arm Warning',
+'Defer Disarmed',
+'Detecting Active Inputs',
+'Walk Test Active',
+'Away Arm',
+'Stay Arm',
+'Sleep Arm',
+' Disarmed',
+'Arm Ready'
 }
 
-for k, v in pairs(vals) do
-
-if (bit.band(k , res)== k) then
-    if string == "" then string = string .. v
-    else string = string .. " - " .. v 
-    end
-end
-
+s = ''
+for i=0,#vals-1 do
+  if bit.band(res, 2^i) > 0 then
+    s = (#s>0 and s..' - '..vals[i+1]) or vals[i+1]
+  end
 end
 --log("string going out is... ".. string)
-return(string)
+return(s)
 end	
 	
 -- Door Decode Function
@@ -116,31 +113,12 @@ end
 
 
 ------------------------------
-  -- Query INCEPTION API --
+--  INCEPTION API Functions --
 ------------------------------
+
+local function inceptionapi(payload,endpoint)
 local http = require("socket.http")
 local json = require("json")
-local endpoint = "monitor-updates"
-	
-	local payload = json.encode(
-	{
-		{
-		ID = "CBUS-Areas-Monitor",
-		RequestType = "MonitorEntityStates",
-		InputData = {
-			stateType = "AreaState",
-			timeSinceUpdate = tsuarea 
-		}
-	},
-	{
-		ID = "CBUS-Doors-Monitor",
-		RequestType = "MonitorEntityStates",
-		InputData = {
-			stateType = "DoorState",
-			timeSinceUpdate = tsudoors
-		}
-	}
-	})	
 	
 	local body, code, headers, status = http.request {
 	method = "POST",
@@ -153,14 +131,48 @@ local endpoint = "monitor-updates"
 	body = payload,
 	timeout = 30,
 	}
-
 --log("Getting Data from Endpoint URL " .. API_ROOT .. '/' .. endpoint .. '\n' .. "tsuarea is " ..tsuarea .. '\n' .."TSUdoors is " .. tsudoors .. '\n'.. 'body:' .. tostring(body) .. '\n' .. 'code:' .. tostring(code) .. '\n' .. 'status:' .. tostring(status))
-
-
 
 if (code ~= 200) then
     log("Inception post error : "..tostring(code)..","..tostring(body))
-    elseif body then
+    return
+elseif (body == nil) then
+    log("Inception post error : "..tostring(code)..","..tostring(body))
+    return
+else return body
+
+end
+end
+
+------------------------------
+	--  Resident Code  --
+------------------------------
+
+local endpoint = "monitor-updates"
+	
+local payload = json.encode(
+{
+	{
+	ID = "CBUS-Areas-Monitor",
+	RequestType = "MonitorEntityStates",
+	InputData = {
+		stateType = "AreaState",
+		timeSinceUpdate = tsuarea 
+	}
+},
+{
+	ID = "CBUS-Doors-Monitor",
+	RequestType = "MonitorEntityStates",
+	InputData = {
+		stateType = "DoorState",
+		timeSinceUpdate = tsudoors
+	}
+}
+})	
+
+local body = inceptionapi(payload,endpoint)
+
+    if body then
       local httptable = json.pdecode(body)
       -- log(httptable)
       -- check if the response was related to areas?
